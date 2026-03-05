@@ -1,5 +1,5 @@
 {
-  "name": "infer-cable-insertion-point",
+  "name": "@tscircuit/infer-cable-insertion-point",
   "module": "index.ts",
   "type": "module",
   "private": true,
