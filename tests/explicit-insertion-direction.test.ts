@@ -64,8 +64,9 @@ test("explicit planar insertion direction overrides the geometry guess", () => {
   expect(guessCableInsertCenter(circuitJson()).side).toBe("top")
   expect(guessCableInsertCenter(circuitJson("from_left")).side).toBe("left")
   expect(guessCableInsertCenter(circuitJson("from_right")).side).toBe("right")
-  expect(guessCableInsertCenter(circuitJson("from_front")).side).toBe("bottom")
-  expect(guessCableInsertCenter(circuitJson("from_back")).side).toBe("top")
+  // `from_front` is +Y, matching core, circuit-json-util and checks.
+  expect(guessCableInsertCenter(circuitJson("from_front")).side).toBe("top")
+  expect(guessCableInsertCenter(circuitJson("from_back")).side).toBe("bottom")
 })
 
 test("from_above keeps the insertion point centered in the footprint bounds", () => {

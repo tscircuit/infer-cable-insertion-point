@@ -62,6 +62,12 @@ const getComponentPcbElements = (
   )
 }
 
+/**
+ * `insertion_direction` is a board-frame direction, already rotated out of the
+ * footprint's frame by core. `from_front` is +Y, matching core's
+ * `transformFootprintInsertionDirection`, `circuit-json-util` and `checks`;
+ * `top`/`bottom` here name the +Y/-Y sides of the component's bounds.
+ */
 const sideFromInsertionDirection = (
   direction: string | undefined,
 ): CableInsertSide | undefined => {
@@ -71,9 +77,9 @@ const sideFromInsertionDirection = (
     case "from_right":
       return "right"
     case "from_front":
-      return "bottom"
-    case "from_back":
       return "top"
+    case "from_back":
+      return "bottom"
     case "from_above":
       return "above"
     default:
