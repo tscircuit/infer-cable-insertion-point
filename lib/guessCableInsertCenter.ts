@@ -7,7 +7,8 @@ type Bounds = {
   maxY: number
 }
 
-export type CableInsertSide = "top" | "bottom" | "left" | "right"
+type PlanarCableInsertSide = "top" | "bottom" | "left" | "right"
+export type CableInsertSide = PlanarCableInsertSide | "above" | "below"
 
 export interface CableInsertCenter {
   x: number
@@ -59,6 +60,52 @@ const getComponentPcbElements = (
     (elm) =>
       "pcb_component_id" in elm && elm.pcb_component_id === pcbComponentId,
   )
+}
+
+/**
+ * `insertion_direction` is a board-frame direction, already rotated out of the
+ * footprint's frame by core. Its names follow the 2D PCB view, so `from_top`
+ * is +Y and `from_bottom` is -Y, matching core's
+ * `transformFootprintInsertionDirection`, `circuit-json-util` and `checks`;
+ * `top`/`bottom` here name the +Y/-Y sides of the component's bounds.
+ *
+ * `from_front`/`from_back` are the deprecated spellings of `from_top`/
+ * `from_bottom` and are still accepted so older Circuit JSON keeps working.
+ */
+const sideFromInsertionDirection = (
+  direction: string | undefined,
+): CableInsertSide | undefined => {
+  switch (direction) {
+    case "from_left":
+    case "from_x_neg":
+      return "left"
+    case "from_right":
+    case "from_x_pos":
+      return "right"
+    case "from_top":
+    case "from_y_pos":
+    case "from_front":
+      return "top"
+    case "from_bottom":
+    case "from_y_neg":
+    case "from_back":
+      return "bottom"
+    case "from_above":
+    case "from_z_pos":
+      return "above"
+    case "from_below":
+    case "from_z_neg":
+      return "below"
+    default:
+      return undefined
+  }
+}
+
+const getInsertionDirection = (component: object): string | undefined => {
+  if (!("insertion_direction" in component)) return undefined
+  return typeof component.insertion_direction === "string"
+    ? component.insertion_direction
+    : undefined
 }
 
 const computeOverallBounds = (
@@ -168,16 +215,19 @@ export const guessCableInsertCenter = (
   const overallBounds = computeOverallBounds(elements, fallbackBounds)
   const padBounds = computePadBounds(elements, fallbackBounds)
 
-  const sideMargins: Record<CableInsertSide, number> = {
+  const sideMargins: Record<PlanarCableInsertSide, number> = {
     left: padBounds.minX - overallBounds.minX,
     right: overallBounds.maxX - padBounds.maxX,
     top: overallBounds.maxY - padBounds.maxY,
     bottom: padBounds.minY - overallBounds.minY,
   }
 
-  const side = (Object.entries(sideMargins).sort(
+  const inferredSide = (Object.entries(sideMargins).sort(
     (a, b) => b[1] - a[1],
-  )[0]?.[0] ?? "bottom") as CableInsertSide
+  )[0]?.[0] ?? "bottom") as PlanarCableInsertSide
+  const side =
+    sideFromInsertionDirection(getInsertionDirection(pcbComponent)) ??
+    inferredSide
 
   const width = overallBounds.maxX - overallBounds.minX
   const height = overallBounds.maxY - overallBounds.minY
@@ -185,6 +235,15 @@ export const guessCableInsertCenter = (
 
   const centerX = (overallBounds.minX + overallBounds.maxX) / 2
   const centerY = (overallBounds.minY + overallBounds.maxY) / 2
+
+  if (side === "above" || side === "below") {
+    return {
+      x: centerX,
+      y: centerY,
+      side,
+      pcbComponentId: pcbComponent.pcb_component_id,
+    }
+  }
 
   if (side === "top") {
     return {
