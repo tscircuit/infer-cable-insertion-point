@@ -8,7 +8,7 @@ type Bounds = {
 }
 
 type PlanarCableInsertSide = "top" | "bottom" | "left" | "right"
-export type CableInsertSide = PlanarCableInsertSide | "above"
+export type CableInsertSide = PlanarCableInsertSide | "above" | "below"
 
 export interface CableInsertCenter {
   x: number
@@ -64,24 +64,38 @@ const getComponentPcbElements = (
 
 /**
  * `insertion_direction` is a board-frame direction, already rotated out of the
- * footprint's frame by core. `from_front` is +Y, matching core's
+ * footprint's frame by core. Its names follow the 2D PCB view, so `from_top`
+ * is +Y and `from_bottom` is -Y, matching core's
  * `transformFootprintInsertionDirection`, `circuit-json-util` and `checks`;
  * `top`/`bottom` here name the +Y/-Y sides of the component's bounds.
+ *
+ * `from_front`/`from_back` are the deprecated spellings of `from_top`/
+ * `from_bottom` and are still accepted so older Circuit JSON keeps working.
  */
 const sideFromInsertionDirection = (
   direction: string | undefined,
 ): CableInsertSide | undefined => {
   switch (direction) {
     case "from_left":
+    case "from_x_neg":
       return "left"
     case "from_right":
+    case "from_x_pos":
       return "right"
+    case "from_top":
+    case "from_y_pos":
     case "from_front":
       return "top"
+    case "from_bottom":
+    case "from_y_neg":
     case "from_back":
       return "bottom"
     case "from_above":
+    case "from_z_pos":
       return "above"
+    case "from_below":
+    case "from_z_neg":
+      return "below"
     default:
       return undefined
   }
@@ -222,7 +236,7 @@ export const guessCableInsertCenter = (
   const centerX = (overallBounds.minX + overallBounds.maxX) / 2
   const centerY = (overallBounds.minY + overallBounds.maxY) / 2
 
-  if (side === "above") {
+  if (side === "above" || side === "below") {
     return {
       x: centerX,
       y: centerY,

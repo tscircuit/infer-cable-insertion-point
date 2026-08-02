@@ -63,22 +63,10 @@ const circuitJson = (
     },
   ] as AnyCircuitElement[]
 
-test("explicit planar insertion direction overrides the geometry guess", () => {
-  expect(guessCableInsertCenter(circuitJson()).side).toBe("top")
-  expect(guessCableInsertCenter(circuitJson("from_left")).side).toBe("left")
-  expect(guessCableInsertCenter(circuitJson("from_right")).side).toBe("right")
-  // `from_top` is +Y, matching core, circuit-json-util and checks.
-  expect(guessCableInsertCenter(circuitJson("from_top")).side).toBe("top")
-  expect(guessCableInsertCenter(circuitJson("from_bottom")).side).toBe("bottom")
-  // Deprecated spellings of from_top/from_bottom.
-  expect(guessCableInsertCenter(circuitJson("from_front")).side).toBe("top")
-  expect(guessCableInsertCenter(circuitJson("from_back")).side).toBe("bottom")
-})
+test("from_below keeps the insertion point centered in the footprint bounds", () => {
+  const inferred = guessCableInsertCenter(circuitJson("from_below"))
 
-test("from_above keeps the insertion point centered in the footprint bounds", () => {
-  const inferred = guessCableInsertCenter(circuitJson("from_above"))
-
-  expect(inferred.side).toBe("above")
+  expect(inferred.side).toBe("below")
   expect(inferred.x).toBe(0)
   expect(inferred.y).toBe(3.5)
 })
