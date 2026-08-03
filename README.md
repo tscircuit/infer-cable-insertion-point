@@ -1,6 +1,6 @@
 # @tscircuit/infer-cable-insertion-point
 
-Infer a likely cable insertion center for USB connector footprints from `CircuitJson` PCB geometry.
+Infer a likely cable insertion center/direction for USB connector footprints from `CircuitJson` PCB geometry.
 
 ## Install
 
