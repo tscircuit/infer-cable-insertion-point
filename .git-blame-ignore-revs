@@ -1,0 +1,3 @@
+# Reformatted the repository with biome ahead of adding the format:check CI gate.
+# `git config blame.ignoreRevsFile .git-blame-ignore-revs` to skip it in blame.
+e79c0fbbac577a7187476f7fc34b05d972ccebe8

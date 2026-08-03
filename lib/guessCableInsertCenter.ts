@@ -295,6 +295,7 @@ export const addCableInsertNoteRect = (
     center: { x: guess.x, y: guess.y },
     width: opts?.noteWidth ?? 1,
     height: opts?.noteHeight ?? 1,
+    layer: "top" as const,
     stroke_width: 0.15,
     is_filled: false,
     has_stroke: true,
