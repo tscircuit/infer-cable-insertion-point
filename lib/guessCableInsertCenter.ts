@@ -160,6 +160,28 @@ const computeOverallBounds = (
       continue
     }
 
+    if (elm.type === "pcb_silkscreen_rect") {
+      includeRect(bounds, elm.center.x, elm.center.y, elm.width, elm.height)
+      continue
+    }
+
+    if (elm.type === "pcb_silkscreen_circle") {
+      includeRect(
+        bounds,
+        elm.center.x,
+        elm.center.y,
+        elm.radius * 2,
+        elm.radius * 2,
+      )
+      continue
+    }
+
+    if (elm.type === "pcb_silkscreen_line") {
+      includePoint(bounds, elm.x1, elm.y1)
+      includePoint(bounds, elm.x2, elm.y2)
+      continue
+    }
+
     if (elm.type === "pcb_component") {
       includeRect(bounds, elm.center.x, elm.center.y, elm.width, elm.height)
     }
