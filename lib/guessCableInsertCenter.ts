@@ -155,6 +155,22 @@ const computeOverallBounds = (
       continue
     }
 
+    if (elm.type === "pcb_silkscreen_rect") {
+      // Rectangles describe the connector body just like silkscreen paths.
+      // Their dimensions are local to ccw_rotation, while center is board-world.
+      const angle = ((elm.ccw_rotation ?? 0) * Math.PI) / 180
+      const cos = Math.abs(Math.cos(angle))
+      const sin = Math.abs(Math.sin(angle))
+      includeRect(
+        bounds,
+        elm.center.x,
+        elm.center.y,
+        elm.width * cos + elm.height * sin,
+        elm.width * sin + elm.height * cos,
+      )
+      continue
+    }
+
     if (elm.type === "pcb_silkscreen_path") {
       for (const point of elm.route) includePoint(bounds, point.x, point.y)
       continue
