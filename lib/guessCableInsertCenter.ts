@@ -37,9 +37,15 @@ const includeRect = (
   y: number,
   width: number,
   height: number,
+  ccwRotation = 0,
 ) => {
-  includePoint(bounds, x - width / 2, y - height / 2)
-  includePoint(bounds, x + width / 2, y + height / 2)
+  const angle = (ccwRotation * Math.PI) / 180
+  const cos = Math.abs(Math.cos(angle))
+  const sin = Math.abs(Math.sin(angle))
+  const rotatedWidth = width * cos + height * sin
+  const rotatedHeight = width * sin + height * cos
+  includePoint(bounds, x - rotatedWidth / 2, y - rotatedHeight / 2)
+  includePoint(bounds, x + rotatedWidth / 2, y + rotatedHeight / 2)
 }
 
 const hasBounds = (bounds: Bounds) =>
@@ -124,7 +130,11 @@ const computeOverallBounds = (
         "width" in elm &&
         "height" in elm
       ) {
-        includeRect(bounds, elm.x, elm.y, elm.width, elm.height)
+        const rotation =
+          "ccw_rotation" in elm && typeof elm.ccw_rotation === "number"
+            ? elm.ccw_rotation
+            : 0
+        includeRect(bounds, elm.x, elm.y, elm.width, elm.height, rotation)
       } else if ("x" in elm && "y" in elm && "radius" in elm) {
         includeRect(bounds, elm.x, elm.y, elm.radius * 2, elm.radius * 2)
       }
@@ -132,8 +142,39 @@ const computeOverallBounds = (
     }
 
     if (elm.type === "pcb_plated_hole") {
-      if ("outer_width" in elm && "outer_height" in elm) {
-        includeRect(bounds, elm.x, elm.y, elm.outer_width, elm.outer_height)
+      if ("rect_pad_width" in elm && "rect_pad_height" in elm) {
+        const rotation =
+          "rect_ccw_rotation" in elm &&
+          typeof elm.rect_ccw_rotation === "number"
+            ? elm.rect_ccw_rotation
+            : "ccw_rotation" in elm && typeof elm.ccw_rotation === "number"
+              ? elm.ccw_rotation
+              : 0
+        includeRect(
+          bounds,
+          elm.x,
+          elm.y,
+          elm.rect_pad_width,
+          elm.rect_pad_height,
+          rotation,
+        )
+      } else if ("pad_outline" in elm && Array.isArray(elm.pad_outline)) {
+        for (const point of elm.pad_outline) {
+          includePoint(bounds, elm.x + point.x, elm.y + point.y)
+        }
+      } else if ("outer_width" in elm && "outer_height" in elm) {
+        const rotation =
+          "ccw_rotation" in elm && typeof elm.ccw_rotation === "number"
+            ? elm.ccw_rotation
+            : 0
+        includeRect(
+          bounds,
+          elm.x,
+          elm.y,
+          elm.outer_width,
+          elm.outer_height,
+          rotation,
+        )
       } else if ("outer_diameter" in elm) {
         includeRect(
           bounds,
@@ -150,7 +191,18 @@ const computeOverallBounds = (
       if ("hole_diameter" in elm) {
         includeRect(bounds, elm.x, elm.y, elm.hole_diameter, elm.hole_diameter)
       } else if ("hole_width" in elm && "hole_height" in elm) {
-        includeRect(bounds, elm.x, elm.y, elm.hole_width, elm.hole_height)
+        const rotation =
+          "ccw_rotation" in elm && typeof elm.ccw_rotation === "number"
+            ? elm.ccw_rotation
+            : 0
+        includeRect(
+          bounds,
+          elm.x,
+          elm.y,
+          elm.hole_width,
+          elm.hole_height,
+          rotation,
+        )
       }
       continue
     }
@@ -210,9 +262,53 @@ export const guessCableInsertCenter = (
   const pcbComponent = getPrimaryPcbComponent(circuitJson)
 
   if (!pcbComponent) {
+    const rawOverallBounds = computeOverallBounds(circuitJson, emptyBounds())
+    if (!hasBounds(rawOverallBounds)) {
+      return {
+        x: 0,
+        y: 0,
+        side: "bottom",
+      }
+    }
+    const rawPadBounds = computePadBounds(circuitJson, rawOverallBounds)
+    const rawMargins: Record<PlanarCableInsertSide, number> = {
+      left: rawPadBounds.minX - rawOverallBounds.minX,
+      right: rawOverallBounds.maxX - rawPadBounds.maxX,
+      top: rawOverallBounds.maxY - rawPadBounds.maxY,
+      bottom: rawPadBounds.minY - rawOverallBounds.minY,
+    }
+    const rawSide = (Object.entries(rawMargins).sort(
+      (a, b) => b[1] - a[1],
+    )[0]?.[0] ?? "bottom") as PlanarCableInsertSide
+    const rawWidth = rawOverallBounds.maxX - rawOverallBounds.minX
+    const rawHeight = rawOverallBounds.maxY - rawOverallBounds.minY
+    const rawOffset = Math.max(0.4, Math.min(rawWidth, rawHeight) * 0.08)
+    const rawCenterX = (rawOverallBounds.minX + rawOverallBounds.maxX) / 2
+    const rawCenterY = (rawOverallBounds.minY + rawOverallBounds.maxY) / 2
+    if (rawSide === "top") {
+      return {
+        x: rawCenterX,
+        y: rawOverallBounds.maxY + rawOffset,
+        side: "top",
+      }
+    }
+    if (rawSide === "left") {
+      return {
+        x: rawOverallBounds.minX - rawOffset,
+        y: rawCenterY,
+        side: "left",
+      }
+    }
+    if (rawSide === "right") {
+      return {
+        x: rawOverallBounds.maxX + rawOffset,
+        y: rawCenterY,
+        side: "right",
+      }
+    }
     return {
-      x: 0,
-      y: 0,
+      x: rawCenterX,
+      y: rawOverallBounds.minY - rawOffset,
       side: "bottom",
     }
   }
@@ -224,10 +320,12 @@ export const guessCableInsertCenter = (
     maxY: pcbComponent.center.y + pcbComponent.height / 2,
   }
 
-  const elements = getComponentPcbElements(
+  const componentElements = getComponentPcbElements(
     circuitJson,
     pcbComponent.pcb_component_id,
   )
+  const elements =
+    componentElements.length > 0 ? componentElements : circuitJson
   const overallBounds = computeOverallBounds(elements, fallbackBounds)
   const padBounds = computePadBounds(elements, fallbackBounds)
 
