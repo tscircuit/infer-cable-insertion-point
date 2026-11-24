@@ -42,6 +42,26 @@ const includeRect = (
   includePoint(bounds, x + width / 2, y + height / 2)
 }
 
+const includeRotatedRect = (
+  bounds: Bounds,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  ccwRotation = 0,
+) => {
+  const angle = (ccwRotation * Math.PI) / 180
+  const cos = Math.abs(Math.cos(angle))
+  const sin = Math.abs(Math.sin(angle))
+  includeRect(
+    bounds,
+    x,
+    y,
+    width * cos + height * sin,
+    width * sin + height * cos,
+  )
+}
+
 const hasBounds = (bounds: Bounds) =>
   Number.isFinite(bounds.minX) &&
   Number.isFinite(bounds.maxX) &&
@@ -124,7 +144,14 @@ const computeOverallBounds = (
         "width" in elm &&
         "height" in elm
       ) {
-        includeRect(bounds, elm.x, elm.y, elm.width, elm.height)
+        includeRotatedRect(
+          bounds,
+          elm.x,
+          elm.y,
+          elm.width,
+          elm.height,
+          "ccw_rotation" in elm ? elm.ccw_rotation : 0,
+        )
       } else if ("x" in elm && "y" in elm && "radius" in elm) {
         includeRect(bounds, elm.x, elm.y, elm.radius * 2, elm.radius * 2)
       }
@@ -133,7 +160,14 @@ const computeOverallBounds = (
 
     if (elm.type === "pcb_plated_hole") {
       if ("outer_width" in elm && "outer_height" in elm) {
-        includeRect(bounds, elm.x, elm.y, elm.outer_width, elm.outer_height)
+        includeRotatedRect(
+          bounds,
+          elm.x,
+          elm.y,
+          elm.outer_width,
+          elm.outer_height,
+          "ccw_rotation" in elm ? elm.ccw_rotation : 0,
+        )
       } else if ("outer_diameter" in elm) {
         includeRect(
           bounds,
@@ -158,15 +192,13 @@ const computeOverallBounds = (
     if (elm.type === "pcb_silkscreen_rect") {
       // Rectangles describe the connector body just like silkscreen paths.
       // Their dimensions are local to ccw_rotation, while center is board-world.
-      const angle = ((elm.ccw_rotation ?? 0) * Math.PI) / 180
-      const cos = Math.abs(Math.cos(angle))
-      const sin = Math.abs(Math.sin(angle))
-      includeRect(
+      includeRotatedRect(
         bounds,
         elm.center.x,
         elm.center.y,
-        elm.width * cos + elm.height * sin,
-        elm.width * sin + elm.height * cos,
+        elm.width,
+        elm.height,
+        elm.ccw_rotation,
       )
       continue
     }
